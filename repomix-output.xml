@@ -1,0 +1,756 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.github/
+  workflows/
+    release.yml
+    unit-test.yml
+src/
+  index.ts
+tests/
+  index.test.ts
+.gitignore
+package.json
+README.md
+tsconfig.json
+tsdown.config.ts
+vitest.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".github/workflows/release.yml">
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+</file>
+
+<file path=".github/workflows/unit-test.yml">
+name: Unit Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4.1.0
+
+      - name: Set node LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        run: pnpm run test
+</file>
+
+<file path="src/index.ts">
+export interface DatePattern {
+  regex: RegExp;
+  format: string;
+}
+
+export interface Localization {
+  year: string[];
+  month: 'long' | 'short' | 'numeric' | string[];
+  week: string[];
+  day: string[];
+  today: string[];
+  weekday: string[];
+  datePatterns: DatePattern[];
+}
+
+export interface DateShortcutParserOptions {
+  fromDate?: Date;
+  locale?: 'en' | 'de' | 'fr' | 'tr' | Localization;
+}
+
+const locales: Record<string, Localization> = {
+  en: {
+    year: ['y', 'yr', 'year', 'years'],
+    month: ['m', 'mo', 'month', 'months'],
+    week: ['w', 'wk', 'week', 'weeks'],
+    day: ['d', 'day', 'days'],
+    today: ['t', 'today', 'now'],
+    weekday: ['wd', 'weekday', 'weekdays'],
+    datePatterns: [
+      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/, format: 'mm/dd/yyyy' },
+    ],
+  },
+  de: {
+    year: ['j', 'jahr', 'jahre'],
+    month: ['m', 'monat', 'monate'],
+    week: ['w', 'woche', 'wochen'],
+    day: ['t', 'tag', 'tage', 'd'],
+    today: ['h', 'heute', 'jetzt'],
+    weekday: ['wt', 'werktag', 'werktage'],
+    datePatterns: [
+      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/, format: 'dd.mm.yyyy' },
+    ],
+  },
+  fr: {
+    year: ['a', 'an', 'année', 'années'],
+    month: ['m', 'mois'],
+    week: ['s', 'sem', 'semaine', 'semaines'],
+    day: ['j', 'jour', 'jours'],
+    today: ['a', 'aujourdhui', 'maintenant'],
+    weekday: ['jo', 'jourouvrable', 'joursouvrables'],
+    datePatterns: [
+      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/, format: 'dd/mm/yyyy' },
+    ],
+  },
+  tr: {
+    year: ['y', 'yıl'],
+    month: ['a', 'ay'],
+    week: ['h', 'hafta'],
+    day: ['g', 'gün'],
+    today: ['b', 'bugün', 'şimdi'],
+    weekday: ['ig', 'işgünü', 'işgünleri'],
+    datePatterns: [
+      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/, format: 'dd.mm.yyyy' },
+    ],
+  },
+};
+
+export class DateShortcutParser {
+  private options: Required<DateShortcutParserOptions>;
+  private locale: Localization;
+
+  constructor(options: DateShortcutParserOptions = {}) {
+    this.options = {
+      fromDate: options.fromDate || new Date(),
+      locale: options.locale || 'en',
+    };
+    this.locale = this.resolveLocale(this.options.locale);
+  }
+
+  private resolveLocale(locale: 'en' | 'de' | 'fr' | 'tr' | Localization): Localization {
+    if (typeof locale === 'string') {
+      const predefinedLocale = locales[locale];
+      if (!predefinedLocale) {
+        throw new Error(`DateShortcutParser: Predefined locale "${locale}" not found.`);
+      }
+      return predefinedLocale;
+    }
+    return locale;
+  }
+
+  
+
+  public parse(shortcut: string): Date {
+    let currentDate = new Date(this.options.fromDate.getTime());
+    let remainingShortcut = shortcut.trim().toLowerCase();
+
+    if (!remainingShortcut) {
+      throw new Error("DateShortcutParser: Shortcut string cannot be empty.");
+    }
+
+    for (const todayWord of this.locale.today) {
+      if (remainingShortcut.startsWith(todayWord)) {
+        currentDate.setHours(0, 0, 0, 0);
+        remainingShortcut = remainingShortcut.substring(todayWord.length);
+        break;
+      }
+    }
+
+    for (const pattern of this.locale.datePatterns) {
+      const match = remainingShortcut.match(pattern.regex);
+      if (match) {
+        const [, dayStr, monthStr, yearStr] = match;
+
+        const format = pattern.format.toLowerCase();
+        const day = parseInt(format.startsWith('dd') ? dayStr : monthStr, 10);
+        const month = parseInt(format.startsWith('dd') ? monthStr : dayStr, 10) - 1;
+        let year = yearStr ? parseInt(yearStr, 10) : this.options.fromDate.getFullYear();
+
+        if (yearStr && yearStr.length <= 2) {
+          year += 2000;
+        }
+
+        currentDate = new Date(year, month, day);
+        remainingShortcut = remainingShortcut.substring(match[0].length);
+        break;
+      }
+    }
+
+    const parts = remainingShortcut.replace(/([+-])/g, ' $1').trim().split(/\s+/).filter(Boolean);
+
+    if (!parts.length && remainingShortcut.length > 0) {
+      throw new Error(`DateShortcutParser: Invalid shortcut format "${shortcut}".`);
+    }
+
+    if (!parts.length) {
+      return currentDate;
+    }
+
+    const adjustToWorkday = parts.includes('.');
+
+    for (const part of parts) {
+      if (part === '.') continue;
+
+      const partRegex = /([+-])?(\d*)?([a-z]+)/;
+      const match = part.match(partRegex);
+
+      if (!match) {
+        throw new Error(`DateShortcutParser: Invalid part format "${part}" in shortcut.`);
+      }
+
+      const [, sign, valueStr, unit] = match;
+      const value = valueStr ? parseInt(valueStr, 10) : 1;
+      const multiplier = sign === '-' ? -1 : 1;
+      const amount = value * multiplier;
+
+      const allUnits = {
+        ...this.locale
+      };
+
+      let unitFound = false;
+      for (const unitType in allUnits) {
+        if (Object.prototype.hasOwnProperty.call(allUnits, unitType)) {
+          const unitArray = allUnits[unitType as keyof Localization];
+          if (Array.isArray(unitArray) && unitArray.includes(unit)) {
+            unitFound = true;
+            switch (unitType) {
+              case 'year':
+                currentDate.setFullYear(currentDate.getFullYear() + amount);
+                break;
+              case 'month':
+                const originalDay = currentDate.getDate();
+                currentDate.setDate(1);
+                currentDate.setMonth(currentDate.getMonth() + amount);
+                const daysInTargetMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                currentDate.setDate(Math.min(originalDay, daysInTargetMonth));
+                break;
+              case 'week':
+                currentDate.setDate(currentDate.getDate() + amount * 7);
+                break;
+              case 'day':
+                currentDate.setDate(currentDate.getDate() + amount);
+                break;
+              case 'weekday':
+                currentDate = this.findNthWeekday(currentDate, value, sign === '-');
+                break;
+              case 'today':
+                currentDate.setHours(0, 0, 0, 0);
+                break;
+            }
+          }
+        }
+      }
+
+      if (!unitFound) {
+        throw new Error(`DateShortcutParser: Unknown unit "${unit}" in shortcut.`);
+      }
+    }
+
+    if (adjustToWorkday) {
+      currentDate = this.findClosestWorkday(currentDate);
+    }
+
+    return currentDate;
+  }
+
+  private findNthWeekday(date: Date, n: number, fromEnd: boolean): Date {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    let dayCounter = 0;
+
+    if (fromEnd) {
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      const tempDate = new Date(lastDayOfMonth.getTime());
+      for (let day = lastDayOfMonth.getDate(); day >= 1; day--) {
+        tempDate.setDate(day);
+        const dayOfWeek = tempDate.getDay();
+        if (dayOfWeek > 0 && dayOfWeek < 6) {
+          dayCounter++;
+          if (dayCounter === n) return tempDate;
+        }
+      }
+    } else {
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const tempDate = new Date(year, month, 1);
+      for (let day = 1; day <= daysInMonth; day++) {
+        tempDate.setDate(day);
+        const dayOfWeek = tempDate.getDay();
+        if (dayOfWeek > 0 && dayOfWeek < 6) {
+          dayCounter++;
+          if (dayCounter === n) return tempDate;
+        }
+      }
+    }
+
+    throw new Error(`DateShortcutParser: Could not find the ${n}${n===1?'st':n===2?'nd':n===3?'rd':'th'} weekday for the specified month.`);
+  }
+
+  private findClosestWorkday(date: Date): Date {
+    const dayOfWeek = date.getDay();
+    const adjustedDate = new Date(date.getTime());
+
+    if (dayOfWeek === 6) { // Saturday
+      adjustedDate.setDate(date.getDate() - 1);
+    } else if (dayOfWeek === 0) { // Sunday
+      adjustedDate.setDate(date.getDate() + 1);
+    }
+
+    return adjustedDate;
+  }
+}
+</file>
+
+<file path="tests/index.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { DateShortcutParser } from '../src';
+
+describe('DateShortcutParser', () => {
+  let fromDate: Date;
+  let enParser: DateShortcutParser;
+  let deParser: DateShortcutParser;
+
+  beforeEach(() => {
+    fromDate = new Date('2024-05-15T10:00:00Z'); // A Wednesday
+    enParser = new DateShortcutParser({ fromDate, locale: 'en' });
+    deParser = new DateShortcutParser({ fromDate, locale: 'de' });
+  });
+
+  it('should parse \'t\' as today', () => {
+    const result = enParser.parse('t');
+    const expected = new Date(fromDate);
+    expected.setHours(0, 0, 0, 0);
+    expect(result.getTime()).toBe(expected.getTime());
+  });
+
+  it('should parse \'1y\'', () => {
+    const result = enParser.parse('1y');
+    expect(result.getFullYear()).toBe(2025);
+  });
+
+  it('should parse \'1y 2m\'', () => {
+    const result = enParser.parse('1y 2m');
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(6); // July
+  });
+
+  it('should parse \'1y 2m -3d\'', () => {
+    const result = enParser.parse('1y 2m -3d');
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(6); // July
+    expect(result.getDate()).toBe(12);
+  });
+
+  it('should parse \'t+3d.\'', () => {
+    const result = enParser.parse('t+3d.');
+    const expected = new Date(fromDate);
+    expected.setHours(0,0,0,0);
+    expected.setDate(expected.getDate() + 3);
+    if (expected.getDay() === 6) { // Saturday
+      expected.setDate(expected.getDate() - 1);
+    } else if (expected.getDay() === 0) { // Sunday
+      expected.setDate(expected.getDate() + 1);
+    }
+        expect(result.getDay()).toBe(5); // Friday
+  });
+
+  it('should handle spaces: \'1y 2w -3d\'', () => {
+    const result = enParser.parse('1y 2w -3d');
+    const expected = new Date(fromDate);
+    expected.setFullYear(expected.getFullYear() + 1);
+    expected.setDate(expected.getDate() + 14 - 3);
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(4);
+    expect(result.getDate()).toBe(26);
+  });
+
+  it('should handle more spaces: \' 2m  -1d \'', () => {
+    const result = enParser.parse(' 2m  -1d ');
+    const expected = new Date(fromDate);
+    expected.setMonth(expected.getMonth() + 2);
+    expected.setDate(expected.getDate() - 1);
+    expect(result.getMonth()).toBe(6);
+    expect(result.getDate()).toBe(14);
+  });
+
+  it('should parse partial date (en): \'05/20\'', () => {
+    const result = enParser.parse('05/20');
+    expect(result.getFullYear()).toBe(2024);
+    expect(result.getMonth()).toBe(4);
+    expect(result.getDate()).toBe(20);
+  });
+
+  it('should parse partial date with year (en): \'5/20/25\'', () => {
+    const result = enParser.parse('5/20/25');
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(4);
+    expect(result.getDate()).toBe(20);
+  });
+
+  it('should parse partial date and operations (en): \'05/20 + 2w.\'', () => {
+    const result = enParser.parse('05/20 + 2w.');
+    const expected = new Date('2024-06-03T00:00:00.000Z'); // Monday
+    expect(result.toISOString().split('T')[0]).toBe('2024-06-03');
+  });
+
+  it('should parse partial date (de): \'23.03\'', () => {
+    const result = deParser.parse('23.03');
+    expect(result.getFullYear()).toBe(2024);
+    expect(result.getMonth()).toBe(2);
+    expect(result.getDate()).toBe(23);
+  });
+
+  it('should parse partial date with year (de): \'23.03.2025\'', () => {
+    const result = deParser.parse('23.03.2025');
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(2);
+    expect(result.getDate()).toBe(23);
+  });
+
+  it('should parse partial date and operations (de): \'23.03 + 2woche.\'', () => {
+    const result = deParser.parse('23.03 + 2woche.');
+    const expected = new Date('2024-04-08T00:00:00.000Z'); // Monday
+    expect(result.toISOString().split('T')[0]).toBe('2024-04-08');
+  });
+
+  it('should parse date and subtract: \'1.1 -1d\'', () => {
+    const parser = new DateShortcutParser({ fromDate: new Date('2024-01-01T10:00:00Z'), locale: 'de' });
+    const result = parser.parse('1.1 -1d');
+    expect(result.getFullYear()).toBe(2023);
+    expect(result.getMonth()).toBe(11);
+    expect(result.getDate()).toBe(31);
+  });
+});
+</file>
+
+<file path=".gitignore">
+node_modules
+dist
+*.log
+.DS_Store
+</file>
+
+<file path="package.json">
+{
+  "name": "date-shortcut-parser",
+  "version": "1.0.0",
+  "description": "A lightweight and powerful TypeScript library for parsing human-readable date shortcuts into `Date` objects.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/egeozcan/date-shortcuts#readme",
+  "bugs": {
+    "url": "https://github.com/egeozcan/date-shortcuts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/egeozcan/date-shortcuts.git"
+  },
+  "author": "Yavuz Ege Özcan",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "release": "bumpp && npm publish"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "bumpp": "^10.1.0",
+    "tsdown": "^0.11.9",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
+</file>
+
+<file path="README.md">
+# Date Shortcut Parser
+
+A lightweight and powerful TypeScript library for parsing human-readable date shortcuts into `Date` objects. This library is perfect for applications that need to handle user input for dates in a flexible and intuitive way.
+
+## Features
+
+- **Relative Dates:** Easily add or subtract years, months, weeks, and days from a given date.
+- **Specific Dates:** Parse specific dates in various formats (e.g., `mm/dd/yyyy`, `dd.mm.yyyy`).
+- **Localization:** Built-in support for English, German, French, and Turkish, with the ability to add custom localizations.
+- **Weekday Parsing:** Find the nth weekday of a month (e.g., the 2nd weekday).
+- **Closest Workday:** Adjust a date to the closest workday.
+- **Zero Dependencies:** A lightweight library with no external dependencies.
+
+## Installation
+
+```bash
+npm install date-shortcut-parser
+```
+
+## Usage
+
+Here's a simple example of how to use the `DateShortcutParser`:
+
+```typescript
+import { DateShortcutParser } from 'date-shortcut-parser';
+
+const parser = new DateShortcutParser();
+
+// Add 1 year, 2 months, and subtract 3 days from the current date
+const futureDate = parser.parse('1y 2m -3d');
+
+console.log(futureDate);
+```
+
+## API Reference
+
+### `DateShortcutParser`
+
+The main class for parsing date shortcuts.
+
+#### `new DateShortcutParser(options?: DateShortcutParserOptions)`
+
+Creates a new instance of the `DateShortcutParser`.
+
+- `options` (optional): An object with the following properties:
+    - `fromDate` (optional): The starting date for calculations. Defaults to the current date and time.
+    - `locale` (optional): The locale to use for parsing. Can be a predefined string ('en', 'de', 'fr', 'tr') or a custom `Localization` object. Defaults to 'en'.
+
+#### `parse(shortcut: string): Date`
+
+Parses a date shortcut string and returns a `Date` object.
+
+- `shortcut`: The date shortcut string to parse.
+
+## Shortcut Syntax
+
+The following table describes the supported shortcut syntax:
+
+| Unit      | Description        | Examples                               |
+| --------- | ------------------ | -------------------------------------- |
+| `y`, `yr`   | Year               | `+1y`, `-2yr`, `1y`                      |
+| `m`, `mo`   | Month              | `+3m`, `-1mo`, `6m`                      |
+| `w`, `wk`   | Week               | `+2w`, `-4wk`, `1w`                      |
+| `d`       | Day                | `+5d`, `-10d`, `15d`                     |
+| `wd`      | Weekday            | `2wd` (2nd weekday), `-1wd` (last weekday) |
+| `.`       | Closest Workday    | `.` (adjusts to the closest workday)   |
+| `t`, `today`   | Today's Date       | `t`, `today`, `t+1d`                   |
+
+### Specific Dates
+
+You can also parse specific dates. The supported formats depend on the locale.
+
+- **English (`en`):** `mm/dd/yyyy` or `mm/dd`
+- **German (`de`):** `dd.mm.yyyy` or `dd.mm`
+- **French (`fr`):** `dd/mm/yyyy` or `dd/mm`
+- **Turkish (`tr`):** `dd.mm.yyyy` or `dd.mm`
+
+## Localization
+
+The library comes with built-in support for English, German, French, and Turkish. You can specify the locale in the `DateShortcutParser` constructor:
+
+```typescript
+const parser = new DateShortcutParser({ locale: 'de' });
+```
+
+You can also provide a custom localization object:
+
+```typescript
+import { DateShortcutParser, Localization } from 'date-shortcut-parser';
+
+const customLocale: Localization = {
+  year: ['y'],
+  month: ['m'],
+  week: ['w'],
+  day: ['d'],
+  today: ['today'],
+  weekday: ['wd'],
+  datePatterns: [
+    { regex: /^(\d{4})-(\d{2})-(\d{2})/, format: 'yyyy-mm-dd' },
+  ],
+};
+
+const parser = new DateShortcutParser({ locale: customLocale });
+```
+
+## Examples
+
+```typescript
+import { DateShortcutParser } from 'date-shortcut-parser';
+
+const fromDate = new Date('2024-05-15T10:00:00Z'); // A Wednesday
+const enParser = new DateShortcutParser({ fromDate, locale: 'en' });
+const deParser = new DateShortcutParser({ fromDate, locale: 'de' });
+
+// Today
+enParser.parse('t'); // -> 2024-05-15
+
+// Add 1 year, 2 months, and subtract 3 days
+enParser.parse('1y 2m -3d'); // -> 2025-07-12
+
+// Add 3 days to today and find the closest workday
+enParser.parse('t+3d.'); // -> 2024-05-20 (Friday)
+
+// Parse a partial date and add 2 weeks, then find the closest workday
+enParser.parse('05/20 + 2w.'); // -> 2024-06-03 (Monday)
+
+// Parse a partial date in German and add 2 weeks, then find the closest workday
+deParser.parse('23.03 + 2woche.'); // -> 2024-04-08 (Monday)
+
+// Parse a date and subtract 1 day
+deParser.parse('1.1 -1d'); // -> 2023-12-31
+```
+
+## Development
+
+- Install dependencies:
+
+```bash
+npm install
+```
+
+- Run the unit tests:
+
+```bash
+npm run test
+```
+
+- Build the library:
+
+```bash
+npm run build
+```
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": ["es2023"],
+    "moduleDetection": "force",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="tsdown.config.ts">
+import { defineConfig } from 'tsdown'
+
+export default defineConfig([
+  {
+    entry: ['./src/index.ts'],
+    platform: 'browser',
+    dts: true,
+  },
+])
+</file>
+
+<file path="vitest.config.ts">
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({})
+</file>
+
+</files>
