@@ -23,6 +23,19 @@
     ".": "./dist/index.js",
     "./package.json": "./package.json"
   },
+  "keywords": [
+    "date",
+    "time",
+    "parser",
+    "shortcut",
+    "datetime",
+    "natural language",
+    "date-parsing",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "publishConfig": {
     "access": "public"
   },

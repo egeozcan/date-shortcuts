@@ -1,0 +1,14 @@
+# build artifacts
+*.log
+
+# dependencies
+node_modules
+
+# misc
+.DS_Store
+.github
+src
+tests
+tsconfig.json
+tsdown.config.ts
+vitest.config.ts
