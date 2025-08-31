@@ -1,6 +1,6 @@
 {
   "name": "date-shortcut-parser",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A lightweight and powerful TypeScript library for parsing human-readable date shortcuts into `Date` objects.",
   "type": "module",
   "license": "MIT",
