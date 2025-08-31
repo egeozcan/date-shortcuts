@@ -43,6 +43,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest",
+    "test:watch": "vitest watch",
     "typecheck": "tsc --noEmit",
     "release": "bumpp && npm publish"
   },

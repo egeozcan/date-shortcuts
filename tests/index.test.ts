@@ -228,8 +228,8 @@ describe('DateShortcutParser Edge Cases', () => {
   it('should throw if requested weekday does not exist', () => {
     // Feb 2025 has 20 weekdays.
     const parser = new DateShortcutParser({ fromDate: new Date('2025-02-10T10:00:00Z') });
-    expect(() => parser.parse('21wd')).toThrow('DateShortcutParser: Could not find the 21st weekday for the specified month.');
-    expect(() => parser.parse('-21wd')).toThrow('DateShortcutParser: Could not find the 21st weekday for the specified month.');
+    expect(() => parser.parse('21wd')).toThrow('DateShortcutParser: Could not find the 21. weekday for the specified month.');
+    expect(() => parser.parse('-21wd')).toThrow('DateShortcutParser: Could not find the 21. weekday for the specified month.');
   });
 
   // Tricky but valid inputs
@@ -283,5 +283,15 @@ describe('DateShortcutParser Today keyword combinations', () => {
   it('should handle just "t"', () => {
     const result = parser.parse('t');
     expect(result.toISOString()).toBe('2024-05-15T00:00:00.000Z');
+  });
+
+  it('should handle multiple "t"s', () => {
+    const result = parser.parse('t t t t t');
+    expect(result.toISOString()).toBe('2024-05-15T00:00:00.000Z');
+  });
+
+  it('should handle "t +1d 5:30pm"', () => {
+    const result = parser.parse('t +1d 5:30pm');
+    expect(result.toISOString()).toBe('2024-05-16T17:30:00.000Z');
   });
 });
