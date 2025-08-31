@@ -174,7 +174,8 @@ export class DateShortcutParser {
     if (remainingShortcut) {
       currentDate.setUTCHours(0, 0, 0, 0);
 
-      for (const todayWord of this.locale.today) {
+      const sortedTodayWords = [...this.locale.today].sort((a, b) => b.length - a.length);
+      for (const todayWord of sortedTodayWords) {
         if (remainingShortcut.startsWith(todayWord)) {
           // Time is already reset, we just need to consume the keyword
           remainingShortcut = remainingShortcut.substring(todayWord.length);
@@ -233,7 +234,7 @@ export class DateShortcutParser {
           const multiplier = sign === '-' ? -1 : 1;
           const amount = value * multiplier;
 
-          const { datePatterns, ...unitDefinitions } = this.locale;
+          const { datePatterns, am, pm, ...unitDefinitions } = this.locale;
 
           let unitFound = false;
           for (const unitType in unitDefinitions) {
@@ -260,6 +261,11 @@ export class DateShortcutParser {
                     break;
                   case 'weekday':
                     currentDate = this.findNthWeekday(currentDate, value, sign === '-');
+                    break;
+                  case 'today':
+                    // This keyword is handled at the start.
+                    // If it appears here, it's part of a relative expression
+                    // like "t+1d", but on its own ("+t") it does nothing.
                     break;
                 }
               }

@@ -245,3 +245,43 @@ describe('DateShortcutParser Edge Cases', () => {
     expect(result.toISOString().split('T')[0]).toBe('2024-05-17');
   });
 });
+
+describe('DateShortcutParser Today keyword combinations', () => {
+  let parser: DateShortcutParser;
+  beforeEach(() => {
+    // Wednesday, May 15, 2024
+    parser = new DateShortcutParser({ fromDate: new Date('2024-05-15T10:00:00Z') });
+  });
+
+  it('should handle "t +1d" with time', () => {
+    const result = parser.parse('t +1d 5:30pm');
+    expect(result.toISOString()).toBe('2024-05-16T17:30:00.000Z');
+  });
+
+  it('should handle "today + 1d"', () => {
+    const result = parser.parse('today + 1d');
+    expect(result.toISOString().split('T')[0]).toBe('2024-05-16');
+  });
+
+  it('should handle reversed order "+1d t"', () => {
+    // 't' here acts as a no-op part, but shouldn't break anything
+    const result = parser.parse('+1d t');
+    expect(result.toISOString().split('T')[0]).toBe('2024-05-16');
+  });
+
+  it('should handle subtraction "t-1d"', () => {
+    const result = parser.parse('t-1d');
+    expect(result.toISOString().split('T')[0]).toBe('2024-05-14');
+  });
+
+  it('should handle "+t" as a no-op for date part', () => {
+    const result = parser.parse('+t');
+    // fromDate is May 15, but date parts are reset to midnight
+    expect(result.toISOString()).toBe('2024-05-15T00:00:00.000Z');
+  });
+
+  it('should handle just "t"', () => {
+    const result = parser.parse('t');
+    expect(result.toISOString()).toBe('2024-05-15T00:00:00.000Z');
+  });
+});
