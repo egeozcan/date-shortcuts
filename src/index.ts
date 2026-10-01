@@ -31,7 +31,7 @@ const locales: Record<string, Localization> = {
     today: ['t', 'today', 'now'],
     weekday: ['wd', 'weekday', 'weekdays'],
     datePatterns: [
-      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/, format: 'mm/dd/yyyy' },
+      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?/, format: 'mm/dd/yyyy' },
     ],
     am: ['am'],
     pm: ['pm'],
@@ -44,7 +44,7 @@ const locales: Record<string, Localization> = {
     today: ['h', 'heute', 'jetzt'],
     weekday: ['wt', 'werktag', 'werktage'],
     datePatterns: [
-      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/, format: 'dd.mm.yyyy' },
+      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?/, format: 'dd.mm.yyyy' },
     ],
     am: [],
     pm: [],
@@ -57,7 +57,7 @@ const locales: Record<string, Localization> = {
     today: ['aujourdhui', 'maintenant'],
     weekday: ['jo', 'jourouvrable', 'joursouvrables'],
     datePatterns: [
-      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/, format: 'dd/mm/yyyy' },
+      { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?/, format: 'dd/mm/yyyy' },
     ],
     am: [],
     pm: [],
@@ -70,12 +70,19 @@ const locales: Record<string, Localization> = {
     today: ['b', 'bugün', 'şimdi'],
     weekday: ['ig', 'işgünü', 'işgünleri'],
     datePatterns: [
-      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/, format: 'dd.mm.yyyy' },
+      { regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?/, format: 'dd.mm.yyyy' },
     ],
     am: [],
     pm: [],
   },
 };
+
+/** Date.UTC maps years 0-99 to 1900-1999; this builds a UTC midnight date with the exact year. */
+function utcDate(year: number, month: number, day: number): Date {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month, day);
+  return date;
+}
 
 interface TimeInfo {
   hour: number;
@@ -301,9 +308,7 @@ export class DateShortcutParser {
         year += 2000;
       }
 
-      // Date.UTC maps years 0-99 to 1900-1999, so set the year explicitly.
-      const date = new Date(Date.UTC(2000, month, day));
-      date.setUTCFullYear(year);
+      const date = utcDate(year, month, day);
       if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) {
         throw new Error(`DateShortcutParser: Invalid date "${match[0]}" in shortcut.`);
       }
@@ -396,7 +401,7 @@ export class DateShortcutParser {
     const originalDay = date.getUTCDate();
     date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() + amount);
-    const daysInTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    const daysInTargetMonth = utcDate(date.getUTCFullYear(), date.getUTCMonth() + 1, 0).getUTCDate();
     date.setUTCDate(Math.min(originalDay, daysInTargetMonth));
   }
 
@@ -420,14 +425,14 @@ export class DateShortcutParser {
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
 
-    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const daysInMonth = utcDate(year, month + 1, 0).getUTCDate();
     const startDay = fromEnd ? daysInMonth : 1;
     const increment = fromEnd ? -1 : 1;
 
     let weekdayCount = 0;
 
     for (let day = startDay; day >= 1 && day <= daysInMonth; day += increment) {
-      const tempDate = new Date(Date.UTC(year, month, day));
+      const tempDate = utcDate(year, month, day);
       const dayOfWeek = tempDate.getUTCDay();
 
       if (dayOfWeek > 0 && dayOfWeek < 6) { // Monday to Friday

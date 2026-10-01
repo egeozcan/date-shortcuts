@@ -355,3 +355,11 @@ describe('review regressions', () => {
     expect(parser.parse('2025-12-25 +1d').toISOString()).toBe('2025-12-26T00:00:00.000Z');
   });
 });
+
+describe('low years', () => {
+  it('handles weekday and month math in years below 100', () => {
+    const parser = new DateShortcutParser({ fromDate: new Date('2024-05-15T10:00:00Z') });
+    expect(parser.parse('1/1/0024 +1wd').getUTCFullYear()).toBe(24);
+    expect(parser.parse('2/29/0024 +1m').getUTCFullYear()).toBe(24);
+  });
+});
