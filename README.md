@@ -81,7 +81,7 @@ Components are combined with spaces. The order of date components is generally f
 | Week    | Add/subtract weeks          | `w`, `wk`, `week`, `weeks` | `+2w`, `-4wk`, `1week`        |
 | Day     | Add/subtract days           | `d`, `day`, `days`         | `+5d`, `-10day`, `15d`        |
 | Weekday | Nth weekday of the month    | `wd`, `weekday`            | `2wd` (2nd), `-1wd` (last)    |
-| Workday | Adjust to closest workday   | `.` (at the very end)      | `+2d.` (Sat -> Fri) |
+| Workday | Adjust to closest workday   | `.` (at the very end)      | `+3d.` (Wed -> Sat -> Fri) |
 
 ### Specific Dates
 
@@ -91,6 +91,10 @@ The supported formats depend on the locale. If the year is omitted, the `fromDat
 -   **German (`de`):** `dd.mm` or `dd.mm.yyyy` (e.g., `26.10`, `26.10.2025`)
 -   **French (`fr`):** `dd/mm` or `dd/mm/yyyy` (e.g., `26/10`, `26/10/2025`)
 -   **Turkish (`tr`):** `dd.mm` or `dd.mm.yyyy` (e.g., `26.10`, `26.10.2025`)
+
+Two-digit years are mapped to 20xx (`10/26/25` is 2025). Impossible dates such as `2/30` throw an error.
+
+For custom `datePatterns`, the `format` string decides the capture-group order: a format starting with `yy` means year, month, day; one starting with `dd` means day, month, year; anything else means month, day, year.
 
 ### Time Components
 
@@ -112,7 +116,7 @@ const parser = new DateShortcutParser({ locale: 'de' });
 You can also provide a custom localization object to support different languages or date formats. Note that locales like German, French, and Turkish have empty `am` and `pm` arrays by default, meaning they only support 24-hour time formats unless customized.
 
 ```typescript
-import { DateShortcutParser, Localization } from 'date-shortcut-parser';
+import { DateShortcutParser, type Localization } from 'date-shortcut-parser';
 
 const customLocale: Localization = {
   year: ['y'],
