@@ -54,7 +54,7 @@ const locales: Record<string, Localization> = {
     month: ['m', 'mois'],
     week: ['s', 'sem', 'semaine', 'semaines'],
     day: ['j', 'jour', 'jours'],
-    today: ['a', 'aujourdhui', 'maintenant'],
+    today: ['aujourdhui', 'maintenant'],
     weekday: ['jo', 'jourouvrable', 'joursouvrables'],
     datePatterns: [
       { regex: /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/, format: 'dd/mm/yyyy' },
@@ -91,7 +91,7 @@ export class DateShortcutParser {
 
   constructor(options: DateShortcutParserOptions = {}) {
     this.options = {
-      fromDate: options.fromDate || new Date(),
+      fromDate: options.fromDate ? new Date(options.fromDate.getTime()) : new Date(),
       locale: options.locale || 'en',
       defaultTime: options.defaultTime || '',
     };
@@ -178,7 +178,10 @@ export class DateShortcutParser {
   private _extractTime(shortcut: string): { timeInfo: TimeInfo | null; dateShortcut: string } {
     const am = this.locale.am || [];
     const pm = this.locale.pm || [];
-    const ampm = [...am, ...pm];
+    // Longest markers first so e.g. "a.m." wins over "a"; escape regex metacharacters.
+    const ampm = [...am, ...pm]
+      .sort((a, b) => b.length - a.length)
+      .map((marker) => marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const ampmPattern = ampm.length > 0 ? `\\s*(${ampm.join('|')})?` : '';
     const timeRegex = new RegExp(`(?:\\s+|^)(\\d{1,2}(?::\\d{2})?(?::\\d{2})?)${ampmPattern}$`, 'i');
 
@@ -203,7 +206,7 @@ export class DateShortcutParser {
       if (hour < 1 || hour > 12) {
         throw new Error(`DateShortcutParser: Invalid hour "${hour}" for AM/PM format.`);
       }
-      const isPm = pm.includes(ampmPart);
+      const isPm = pm.some((marker) => marker.toLowerCase() === ampmPart);
       if (isPm && hour < 12) {
         hour += 12;
       } else if (!isPm && hour === 12) { // 12am is midnight
@@ -290,7 +293,12 @@ export class DateShortcutParser {
         year += 2000;
       }
 
-      const date = new Date(Date.UTC(year, month, day));
+      // Date.UTC maps years 0-99 to 1900-1999, so set the year explicitly.
+      const date = new Date(Date.UTC(2000, month, day));
+      date.setUTCFullYear(year);
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) {
+        throw new Error(`DateShortcutParser: Invalid date "${match[0]}" in shortcut.`);
+      }
       const remaining = shortcut.substring(match[0].length).trim();
       return { date, remaining };
     }
@@ -326,7 +334,7 @@ export class DateShortcutParser {
    * Parses a single relative part (e.g., "+1y") and modifies the date.
    */
   private _applySinglePart(date: Date, part: string): void {
-    const partRegex = /^([+-])?(\d*)?([a-z]+)$/i;
+    const partRegex = /^([+-])?(\d*)([\p{L}]+)$/iu;
     const match = part.match(partRegex);
     if (!match) {
       throw new Error(`DateShortcutParser: Invalid part format "${part}" in shortcut.`);
@@ -354,14 +362,10 @@ export class DateShortcutParser {
 
     switch (unitType) {
       case 'year':
-        date.setUTCFullYear(date.getUTCFullYear() + amount);
+        this._addMonths(date, amount * 12);
         break;
       case 'month':
-        const originalDay = date.getUTCDate();
-        date.setUTCDate(1);
-        date.setUTCMonth(date.getUTCMonth() + amount);
-        const daysInTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
-        date.setUTCDate(Math.min(originalDay, daysInTargetMonth));
+        this._addMonths(date, amount);
         break;
       case 'week':
         date.setUTCDate(date.getUTCDate() + amount * 7);
@@ -369,11 +373,23 @@ export class DateShortcutParser {
       case 'day':
         date.setUTCDate(date.getUTCDate() + amount);
         break;
-      case 'weekday':
+      case 'weekday': {
         const modifiedDate = this._findNthWeekday(date, value, sign === '-');
         date.setTime(modifiedDate.getTime());
         break;
+      }
     }
+  }
+
+  /**
+   * Adds months to a date, clamping the day to the target month's length (Jan 31 + 1m = Feb 28/29).
+   */
+  private _addMonths(date: Date, amount: number): void {
+    const originalDay = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + amount);
+    const daysInTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(originalDay, daysInTargetMonth));
   }
 
   /**

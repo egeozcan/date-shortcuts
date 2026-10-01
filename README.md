@@ -37,7 +37,7 @@ console.log(futureDate);
 
 // Create a parser with a specific 'from' date and a default time.
 const customParser = new DateShortcutParser({
-  fromDate: new Date('2024-00-01T00:00:00Z'),
+  fromDate: new Date('2024-01-01T00:00:00Z'),
   defaultTime: '09:00',
 });
 
