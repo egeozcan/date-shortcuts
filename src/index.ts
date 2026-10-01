@@ -285,11 +285,19 @@ export class DateShortcutParser {
       const [, p1, p2, p3] = match;
       const format = pattern.format.toLowerCase();
 
-      const day = parseInt(format.startsWith('dd') ? p1 : p2, 10);
-      const month = parseInt(format.startsWith('dd') ? p2 : p1, 10) - 1;
-      let year = p3 ? parseInt(p3, 10) : this.options.fromDate.getUTCFullYear();
+      let day: number, month: number, yearStr: string | undefined;
+      if (format.startsWith('yyyy') || format.startsWith('yy')) {
+        yearStr = p1;
+        month = parseInt(p2, 10) - 1;
+        day = parseInt(p3, 10);
+      } else {
+        day = parseInt(format.startsWith('dd') ? p1 : p2, 10);
+        month = parseInt(format.startsWith('dd') ? p2 : p1, 10) - 1;
+        yearStr = p3;
+      }
+      let year = yearStr ? parseInt(yearStr, 10) : this.options.fromDate.getUTCFullYear();
 
-      if (p3 && p3.length <= 2) {
+      if (yearStr && yearStr.length <= 2) {
         year += 2000;
       }
 

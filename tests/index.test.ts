@@ -295,6 +295,7 @@ describe('DateShortcutParser Today keyword combinations', () => {
     expect(result.toISOString()).toBe('2024-05-16T17:30:00.000Z');
   });
 });
+
 describe('review regressions', () => {
   const fromDate = new Date('2024-05-15T10:00:00Z');
 
@@ -340,5 +341,17 @@ describe('review regressions', () => {
     const parser = new DateShortcutParser({ fromDate: d });
     d.setUTCFullYear(2000);
     expect(parser.parse('+1d').toISOString()).toBe('2024-05-16T00:00:00.000Z');
+  });
+
+  it('supports year-first custom date patterns (README example)', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: {
+        year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'],
+        datePatterns: [{ regex: /^(\d{4})-(\d{2})-(\d{2})/, format: 'yyyy-mm-dd' }],
+      },
+    });
+    expect(parser.parse('2025-12-25').toISOString()).toBe('2025-12-25T00:00:00.000Z');
+    expect(parser.parse('2025-12-25 +1d').toISOString()).toBe('2025-12-26T00:00:00.000Z');
   });
 });
