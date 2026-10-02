@@ -2,18 +2,31 @@
 
 ## Unreleased
 
+Changes since 1.0.3. Several inputs that used to return a wrong date now throw, and French `a`
+changes meaning, so release this as a minor (or major) version rather than a patch.
+
 ### Behavior changes
 
 - **French `a` now means one year, not "today".** `a` was listed both as a year unit and as a
   "today" keyword in the `fr` locale, and the "today" meaning won, so `a`, `+1a` and `a +1j` did not
   do what they said. `a` is now only the year unit (`+1a` adds a year, a bare `a` is one year from
   today). Use `aujourdhui` or `maintenant` for today.
-- Custom `datePatterns`: the capture-group order is now read from the whole `format` string. Before,
-  only a format starting with `dd` was day-first, so `d/m/yyyy` was read as month-first. Formats
-  starting with `dd`, `mm` or `yy` behave as before.
+- Custom `datePatterns`: the capture-group order is now read from where `d`, `m` and `y` first
+  appear in the `format` string. In 1.0.3 only a format starting with `dd` was day-first and
+  everything else was month, day, year, so `d/m/yyyy` and `yyyy-mm-dd` were read wrongly. A format
+  must now contain a day and a month, otherwise parsing a matching date throws. A format without a
+  year still reads an optional year from the group after the day and month.
+- Date patterns only count when they match at the start of the shortcut.
+- Impossible dates such as `2/30` or `13/45/2024` throw instead of rolling over.
+- Built-in date patterns accept only 2- or 4-digit years; 2-digit years map to 20xx, and years
+  below 100 are no longer moved into the 1900s.
 
 ### Fixes
 
+- Non-ASCII unit keywords such as `gün`, `yıl` and `année` work.
+- Adding months or years clamps the day to the target month (`2/29/2024 +1y` is Feb 28, 2025).
+- Changing the `fromDate` object after creating the parser no longer affects it.
+- Custom am/pm markers containing regex characters (e.g. `p.m.`) are matched literally.
 - Uppercase Turkish units and keywords such as `YIL`, `İŞGÜNÜ` and `ŞİMDİ` are recognized. Unit
   matching now also applies Turkish casing rules.
 - A custom date pattern ending in a number (e.g. `2025 03 15`) no longer loses that number to the

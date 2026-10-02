@@ -6,6 +6,10 @@ const require = createRequire(import.meta.url);
 const esm = await import('date-shortcut-parser');
 const cjs = require('date-shortcut-parser');
 
+// Node 20.19+ can require() ESM too, so check that require really resolves to the CJS build.
+assert.ok(require.resolve('date-shortcut-parser').endsWith('.cjs'));
+assert.notEqual(esm, cjs);
+
 for (const { DateShortcutParser } of [esm, cjs]) {
   const parser = new DateShortcutParser({ fromDate: new Date('2024-05-15T10:00:00Z') });
   assert.equal(parser.parse('+1d 5pm').toISOString(), '2024-05-16T17:00:00.000Z');
