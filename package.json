@@ -41,8 +41,9 @@
   },
   "scripts": {
     "build": "tsdown",
+    "prepublishOnly": "npm run build",
     "dev": "tsdown --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest watch",
     "typecheck": "tsc --noEmit",
     "release": "bumpp && npm publish"

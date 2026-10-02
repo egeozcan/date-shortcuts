@@ -295,3 +295,71 @@ describe('DateShortcutParser Today keyword combinations', () => {
     expect(result.toISOString()).toBe('2024-05-16T17:30:00.000Z');
   });
 });
+
+describe('review regressions', () => {
+  const fromDate = new Date('2024-05-15T10:00:00Z');
+
+  it('supports non-ASCII unit keywords', () => {
+    const tr = new DateShortcutParser({ fromDate, locale: 'tr' });
+    expect(tr.parse('+1gün').toISOString()).toBe('2024-05-16T00:00:00.000Z');
+    expect(tr.parse('1yıl').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+    const fr = new DateShortcutParser({ fromDate, locale: 'fr' });
+    expect(fr.parse('1année').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+    expect(fr.parse('+1a').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+  });
+
+  it('rejects impossible absolute dates', () => {
+    const parser = new DateShortcutParser({ fromDate });
+    expect(() => parser.parse('13/45/2024')).toThrow(/Invalid date/);
+    expect(() => parser.parse('2/30')).toThrow(/Invalid date/);
+  });
+
+  it('does not map years 0-99 to the 1900s', () => {
+    const parser = new DateShortcutParser({ fromDate });
+    expect(parser.parse('1/1/0024').getUTCFullYear()).toBe(24);
+  });
+
+  it('clamps Feb 29 + 1y to Feb 28', () => {
+    const parser = new DateShortcutParser({ fromDate });
+    expect(parser.parse('2/29/2024 +1y').toISOString()).toBe('2025-02-28T00:00:00.000Z');
+  });
+
+  it('escapes custom am/pm markers', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: {
+        year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'],
+        datePatterns: [], am: ['a.m.'], pm: ['p.m.'],
+      },
+    });
+    expect(parser.parse('+1d 5 p.m.').toISOString()).toBe('2024-05-16T17:00:00.000Z');
+    expect(() => parser.parse('+1d 5 pxm')).toThrow();
+  });
+
+  it('does not change when the caller mutates fromDate', () => {
+    const d = new Date(fromDate);
+    const parser = new DateShortcutParser({ fromDate: d });
+    d.setUTCFullYear(2000);
+    expect(parser.parse('+1d').toISOString()).toBe('2024-05-16T00:00:00.000Z');
+  });
+
+  it('supports year-first custom date patterns (README example)', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: {
+        year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'],
+        datePatterns: [{ regex: /^(\d{4})-(\d{2})-(\d{2})/, format: 'yyyy-mm-dd' }],
+      },
+    });
+    expect(parser.parse('2025-12-25').toISOString()).toBe('2025-12-25T00:00:00.000Z');
+    expect(parser.parse('2025-12-25 +1d').toISOString()).toBe('2025-12-26T00:00:00.000Z');
+  });
+});
+
+describe('low years', () => {
+  it('handles weekday and month math in years below 100', () => {
+    const parser = new DateShortcutParser({ fromDate: new Date('2024-05-15T10:00:00Z') });
+    expect(parser.parse('1/1/0024 +1wd').getUTCFullYear()).toBe(24);
+    expect(parser.parse('2/29/0024 +1m').getUTCFullYear()).toBe(24);
+  });
+});
