@@ -8,15 +8,18 @@ changes meaning, so release this as a minor (or major) version rather than a pat
 ### Behavior changes
 
 - **French `a` now means one year, not "today".** `a` was listed both as a year unit and as a
-  "today" keyword in the `fr` locale, and the "today" meaning won, so `a`, `+1a` and `a +1j` did not
-  do what they said. `a` is now only the year unit (`+1a` adds a year, a bare `a` is one year from
-  today). Use `aujourdhui` or `maintenant` for today.
+  "today" keyword in the `fr` locale, so a bare `a` meant today and `a +1j` meant tomorrow. `a` is
+  now only the year unit: a bare `a` is one year from today and `a +1j` is a year and a day from
+  today. `+1a` still adds a year. Use `aujourdhui` or `maintenant` for today.
+- Custom locales: a keyword listed under several unit types now uses only the first of year, month,
+  week, day, today, weekday. In 1.0.3 every matching unit was applied.
 - Custom `datePatterns`: the capture-group order is now read from where `d`, `m` and `y` first
   appear in the `format` string. In 1.0.3 only a format starting with `dd` was day-first and
   everything else was month, day, year, so `d/m/yyyy` and `yyyy-mm-dd` were read wrongly. A format
   must now contain a day and a month, otherwise parsing a matching date throws. A format without a
   year still reads an optional year from the group after the day and month.
-- Date patterns only count when they match at the start of the shortcut.
+- Date patterns only count when they match at the start of the shortcut (after an optional today
+  keyword).
 - Impossible dates such as `2/30` or `13/45/2024` throw instead of rolling over.
 - Built-in date patterns accept only 2- or 4-digit years; 2-digit years map to 20xx, and years
   below 100 are no longer moved into the 1900s.
@@ -24,7 +27,8 @@ changes meaning, so release this as a minor (or major) version rather than a pat
 ### Fixes
 
 - Non-ASCII unit keywords such as `gün`, `yıl` and `année` work.
-- Adding months or years clamps the day to the target month (`2/29/2024 +1y` is Feb 28, 2025).
+- Adding years clamps the day to the target month (`2/29/2024 +1y` is Feb 28, 2025, not Mar 1).
+- A today keyword followed by a space and a date (`t 5/20 5pm`) works.
 - Changing the `fromDate` object after creating the parser no longer affects it.
 - Custom am/pm markers containing regex characters (e.g. `p.m.`) are matched literally.
 - Uppercase Turkish units and keywords such as `YIL`, `İŞGÜNÜ` and `ŞİMDİ` are recognized. Unit

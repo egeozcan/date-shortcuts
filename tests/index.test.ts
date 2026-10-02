@@ -435,3 +435,15 @@ describe('custom pattern edge cases', () => {
     expect(() => parser.parse('x 2025-03-15')).toThrow();
   });
 });
+
+describe('stateful regex flags', () => {
+  it('handles sticky and global date patterns followed by a time', () => {
+    const fromDate = new Date('2024-05-15T10:00:00Z');
+    const base = { year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'] };
+    for (const regex of [/(\d{1,2})\/(\d{1,2})/y, /(\d{1,2})\/(\d{1,2})/g]) {
+      const parser = new DateShortcutParser({ fromDate, locale: { ...base, datePatterns: [{ regex, format: 'mm/dd' }] } });
+      expect(parser.parse('5/20 9').toISOString()).toBe('2024-05-20T09:00:00.000Z');
+      expect(parser.parse('5/20 9').toISOString()).toBe('2024-05-20T09:00:00.000Z');
+    }
+  });
+});

@@ -114,6 +114,14 @@ function fieldOrder(format: string): Array<'d' | 'm' | 'y'> {
   return fields;
 }
 
+/** Matches a date pattern at the start of `text`; resets lastIndex so /g and /y regexes behave too. */
+function matchDatePattern(pattern: DatePattern, text: string): RegExpExecArray | null {
+  pattern.regex.lastIndex = 0;
+  const match = pattern.regex.exec(text);
+  pattern.regex.lastIndex = 0;
+  return match?.index === 0 ? match : null;
+}
+
 interface TimeInfo {
   hour: number;
   minute: number;
@@ -271,8 +279,8 @@ export class DateShortcutParser {
     const rest = this._stripToday(shortcut);
     const offset = shortcut.length - rest.length;
     for (const pattern of this.locale.datePatterns) {
-      const match = rest.match(pattern.regex);
-      if (match?.index === 0) {
+      const match = matchDatePattern(pattern, rest);
+      if (match) {
         return offset + match[0].length > timeStart;
       }
     }
@@ -339,8 +347,8 @@ export class DateShortcutParser {
   private _tryParseAbsoluteDate(shortcut: string): { date: Date, remaining: string } | null {
     for (const pattern of this.locale.datePatterns) {
       // Dates must start the shortcut; an unanchored regex matching later would drop the text before it.
-      const match = shortcut.match(pattern.regex);
-      if (!match || match.index !== 0) continue;
+      const match = matchDatePattern(pattern, shortcut);
+      if (!match) continue;
 
       const fields: Partial<Record<'d' | 'm' | 'y', string>> = {};
       fieldOrder(pattern.format).forEach((field, i) => {
