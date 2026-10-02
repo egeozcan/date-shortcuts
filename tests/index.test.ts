@@ -447,3 +447,13 @@ describe('stateful regex flags', () => {
     }
   });
 });
+
+describe('duplicate keywords', () => {
+  it('uses the first unit type in year, month, week, day, today, weekday order', () => {
+    const parser = new DateShortcutParser({
+      fromDate: new Date('2024-05-15T10:00:00Z'),
+      locale: { day: ['x', 'd'], year: ['x', 'y'], month: ['m'], week: ['w'], today: [], weekday: ['wd'], datePatterns: [] },
+    });
+    expect(parser.parse('+1x').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+  });
+});

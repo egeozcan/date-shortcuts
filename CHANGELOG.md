@@ -18,6 +18,11 @@ changes meaning, so release this as a minor (or major) version rather than a pat
   everything else was month, day, year, so `d/m/yyyy` and `yyyy-mm-dd` were read wrongly. A format
   must now contain a day and a month, otherwise parsing a matching date throws. A format without a
   year still reads an optional year from the group after the day and month.
+- When a custom pattern's optional year could also be read as a time (e.g. an optional
+  space-separated year), the number now goes to the date: with `/^(\d{1,2})\.(\d{1,2})(?: (\d{2,4}))?/`,
+  `15.03 12` is March 15, 2012, not March 15 at 12:00.
+- Custom date patterns are matched against the shortcut as typed, not lowercased; add the `i` flag
+  to a pattern that contains letters if it should be case-insensitive.
 - Date patterns only count when they match at the start of the shortcut (after an optional today
   keyword).
 - Impossible dates such as `2/30` or `13/45/2024` throw instead of rolling over.
@@ -34,8 +39,8 @@ changes meaning, so release this as a minor (or major) version rather than a pat
 - Uppercase Turkish units and keywords such as `YIL`, `İŞGÜNÜ` and `ŞİMDİ` are recognized. Unit
   matching now also applies Turkish casing rules.
 - A custom date pattern ending in a number (e.g. `2025 03 15`) no longer loses that number to the
-  time parser. When a pattern's optional year could also be read as a time (e.g. an optional
-  space-separated year), the number now goes to the date.
+  time parser.
+- Custom date patterns with the `g` or `y` flag work; before they failed or only worked once.
 - Amounts that move the date out of the range `Date` supports (e.g. `99999999999y`) throw an error
   instead of returning an Invalid Date.
 

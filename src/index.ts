@@ -186,12 +186,14 @@ export class DateShortcutParser {
 
   /**
    * Creates a fast lookup map from a unit keyword (e.g., "yr") to its type (e.g., "year").
+   * A keyword listed under several types keeps the first type in this fixed order.
    */
   private _createUnitTypeMap(): Map<string, string> {
     const map = new Map<string, string>();
-    const { datePatterns, am, pm, ...unitDefinitions } = this.locale;
+    const unitTypes = ['year', 'month', 'week', 'day', 'today', 'weekday'] as const;
 
-    for (const [unitType, keywords] of Object.entries(unitDefinitions)) {
+    for (const unitType of unitTypes) {
+      const keywords = this.locale[unitType];
       if (Array.isArray(keywords)) {
         for (const keyword of keywords) {
           for (const form of lowercaseForms(keyword)) {
