@@ -20,6 +20,12 @@ A lightweight and powerful TypeScript library for parsing human-readable date sh
 npm install date-shortcut-parser
 ```
 
+The package ships both ES module and CommonJS builds and runs on Node.js 18 or newer:
+
+```javascript
+const { DateShortcutParser } = require('date-shortcut-parser');
+```
+
 ## Usage
 
 Here's a simple example of how to use the `DateShortcutParser`:
@@ -94,7 +100,9 @@ The supported formats depend on the locale. If the year is omitted, the `fromDat
 
 Two-digit years are mapped to 20xx (`10/26/25` is 2025). Impossible dates such as `2/30` throw an error.
 
-For custom `datePatterns`, the `format` string decides the capture-group order: a format starting with `yy` means year, month, day; one starting with `dd` means day, month, year; anything else means month, day, year.
+For custom `datePatterns`, the `format` string decides the capture-group order: the capture groups are assigned in the order that `d`, `m` and `y` first appear in it. So `d/m/yyyy` and `dd.mm.yyyy` mean day, month, year; `mm/dd` means month, day; `yyyy-mm-dd` means year, month, day. The format must contain a day and a month; without a year, the `fromDate`'s year is used.
+
+A date pattern that ends in a number, such as `/^(\d{4}) (\d{2}) (\d{2})/` for `2025 03 15`, keeps that number: it is not read as a time. A time can still follow it (`2025 03 15 10:30`).
 
 ### Time Components
 
