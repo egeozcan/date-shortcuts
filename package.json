@@ -14,13 +14,23 @@
   },
   "author": "Yavuz Ege Özcan",
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -45,6 +55,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest watch",
+    "test:dist": "node scripts/smoke-test.mjs",
     "typecheck": "tsc --noEmit",
     "release": "bumpp && npm publish"
   },

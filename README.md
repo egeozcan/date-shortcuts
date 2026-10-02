@@ -20,6 +20,12 @@ A lightweight and powerful TypeScript library for parsing human-readable date sh
 npm install date-shortcut-parser
 ```
 
+The package ships both ES module and CommonJS builds and runs on Node.js 18 or newer:
+
+```javascript
+const { DateShortcutParser } = require('date-shortcut-parser');
+```
+
 ## Usage
 
 Here's a simple example of how to use the `DateShortcutParser`:
@@ -94,7 +100,11 @@ The supported formats depend on the locale. If the year is omitted, the `fromDat
 
 Two-digit years are mapped to 20xx (`10/26/25` is 2025). Impossible dates such as `2/30` throw an error.
 
-For custom `datePatterns`, the `format` string decides the capture-group order: a format starting with `yy` means year, month, day; one starting with `dd` means day, month, year; anything else means month, day, year.
+For custom `datePatterns`, the `format` string decides the capture-group order: the capture groups are assigned in the order that `d`, `m` and `y` first appear in it. So `d/m/yyyy` and `dd.mm.yyyy` mean day, month, year; `mm/dd` means month, day; `yyyy-mm-dd` means year, month, day. The format must contain a day and a month. If it has no year, an optional capture group after the day and month is still read as the year; when there is none, the `fromDate`'s year is used.
+
+Patterns must match at the start of the shortcut (after an optional today keyword). A date pattern that ends in a number, such as `/^(\d{4}) (\d{2}) (\d{2})/` for `2025 03 15`, keeps that number: it is not read as a time. A time can still follow it (`2025 03 15 10:30`). If a pattern has an optional year that a bare trailing number could fill, the number is read as the year; write the time with minutes or am/pm (`10:00`, `10pm`) to keep it a time. Patterns are matched case-sensitively, so add the `i` flag to a pattern with letters if needed.
+
+If a custom locale lists the same keyword under several units, the first of `year`, `month`, `week`, `day`, `weekday`, `today` wins.
 
 ### Time Components
 

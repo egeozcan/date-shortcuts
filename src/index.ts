@@ -84,6 +84,44 @@ function utcDate(year: number, month: number, day: number): Date {
   return date;
 }
 
+/**
+ * Lowercase variants of a keyword. Default lowercasing turns "YIL" into "yil" and "İ" into "i" plus a
+ * combining dot, so Turkish casing rules are tried as well; that keeps "YIL" and "İŞGÜNÜ" working.
+ */
+function lowercaseForms(text: string): string[] {
+  const plain = text.toLowerCase().normalize('NFC');
+  const turkish = text.toLocaleLowerCase('tr').normalize('NFC');
+  return plain === turkish ? [plain] : [plain, turkish];
+}
+
+function sameKeyword(input: string, keyword: string): boolean {
+  const keywordForms = lowercaseForms(keyword);
+  return lowercaseForms(input).some((form) => keywordForms.includes(form));
+}
+
+/**
+ * Returns the capture-group order of a date format, e.g. "d/m/yyyy" -> ['d', 'm', 'y'].
+ * A format without a year still reads an optional year from the group after the day and month.
+ */
+function fieldOrder(format: string): Array<'d' | 'm' | 'y'> {
+  const lower = format.toLowerCase();
+  const fields = (['d', 'm', 'y'] as const).filter((field) => lower.includes(field));
+  if (!fields.includes('d') || !fields.includes('m')) {
+    throw new Error(`DateShortcutParser: Date pattern format "${format}" must contain a day and a month.`);
+  }
+  fields.sort((a, b) => lower.indexOf(a) - lower.indexOf(b));
+  if (!fields.includes('y')) fields.push('y');
+  return fields;
+}
+
+/** Matches a date pattern at the start of `text`; resets lastIndex so /g and /y regexes behave too. */
+function matchDatePattern(pattern: DatePattern, text: string): RegExpExecArray | null {
+  pattern.regex.lastIndex = 0;
+  const match = pattern.regex.exec(text);
+  pattern.regex.lastIndex = 0;
+  return match?.index === 0 ? match : null;
+}
+
 interface TimeInfo {
   hour: number;
   minute: number;
@@ -148,15 +186,19 @@ export class DateShortcutParser {
 
   /**
    * Creates a fast lookup map from a unit keyword (e.g., "yr") to its type (e.g., "year").
+   * A keyword listed under several types keeps the first type in this fixed order.
    */
   private _createUnitTypeMap(): Map<string, string> {
     const map = new Map<string, string>();
-    const { datePatterns, am, pm, ...unitDefinitions } = this.locale;
+    const unitTypes = ['year', 'month', 'week', 'day', 'weekday', 'today'] as const;
 
-    for (const [unitType, keywords] of Object.entries(unitDefinitions)) {
+    for (const unitType of unitTypes) {
+      const keywords = this.locale[unitType];
       if (Array.isArray(keywords)) {
         for (const keyword of keywords) {
-          map.set(keyword, unitType);
+          for (const form of lowercaseForms(keyword)) {
+            if (!map.has(form)) map.set(form, unitType);
+          }
         }
       }
     }
@@ -193,7 +235,9 @@ export class DateShortcutParser {
     const timeRegex = new RegExp(`(?:\\s+|^)(\\d{1,2}(?::\\d{2})?(?::\\d{2})?)${ampmPattern}$`, 'i');
 
     const match = shortcut.match(timeRegex);
-    if (!match) {
+    // A bare number fully swallowed by a date pattern (the "15" in "2025 03 15") belongs to the date.
+    const timeEnd = match ? match.index! + match[0].search(/\d/) + match[1].length : 0;
+    if (!match || (!match[2] && this._absoluteDateEndsAtOrAfter(shortcut, timeEnd))) {
       return { timeInfo: null, dateShortcut: shortcut };
     }
 
@@ -232,6 +276,34 @@ export class DateShortcutParser {
   }
 
   /**
+   * True if the absolute date pattern that _parseDate would use ends at or after `position`.
+   */
+  private _absoluteDateEndsAtOrAfter(shortcut: string, position: number): boolean {
+    const rest = this._stripToday(shortcut);
+    const offset = shortcut.length - rest.length;
+    for (const pattern of this.locale.datePatterns) {
+      const match = matchDatePattern(pattern, rest);
+      if (match) {
+        return offset + match[0].length >= position;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Removes a leading "today" keyword, if any. Longest keywords are tried first so "today" wins over "t".
+   */
+  private _stripToday(shortcut: string): string {
+    const sortedTodayWords = [...this.locale.today].sort((a, b) => b.length - a.length);
+    for (const todayWord of sortedTodayWords) {
+      if (todayWord && sameKeyword(shortcut.slice(0, todayWord.length), todayWord)) {
+        return shortcut.substring(todayWord.length).trim();
+      }
+    }
+    return shortcut;
+  }
+
+  /**
    * Parses the date portion of the shortcut, handling absolute dates and relative adjustments.
    */
   private _parseDate(dateShortcut: string): Date {
@@ -245,17 +317,8 @@ export class DateShortcutParser {
     // Otherwise, start from today at midnight.
     currentDate.setUTCHours(0, 0, 0, 0);
 
-    let remainingShortcut = dateShortcut;
-
-    // Handle "today" keywords first, as they establish the base date.
-    // Sorting by length ensures "today" matches before "t".
-    const sortedTodayWords = [...this.locale.today].sort((a, b) => b.length - a.length);
-    for (const todayWord of sortedTodayWords) {
-      if (remainingShortcut.toLowerCase().startsWith(todayWord)) {
-        remainingShortcut = remainingShortcut.substring(todayWord.length).trim();
-        break; // Consume only the first "today" keyword found
-      }
-    }
+    // Handle a "today" keyword first, as it establishes the base date.
+    let remainingShortcut = this._stripToday(dateShortcut);
 
     // Then, try to match an absolute date pattern, which would override "today".
     const absoluteDateResult = this._tryParseAbsoluteDate(remainingShortcut);
@@ -286,22 +349,18 @@ export class DateShortcutParser {
    */
   private _tryParseAbsoluteDate(shortcut: string): { date: Date, remaining: string } | null {
     for (const pattern of this.locale.datePatterns) {
-      const match = shortcut.match(pattern.regex);
+      // Dates must start the shortcut; an unanchored regex matching later would drop the text before it.
+      const match = matchDatePattern(pattern, shortcut);
       if (!match) continue;
 
-      const [, p1, p2, p3] = match;
-      const format = pattern.format.toLowerCase();
+      const fields: Partial<Record<'d' | 'm' | 'y', string>> = {};
+      fieldOrder(pattern.format).forEach((field, i) => {
+        fields[field] = match[i + 1];
+      });
 
-      let day: number, month: number, yearStr: string | undefined;
-      if (format.startsWith('yyyy') || format.startsWith('yy')) {
-        yearStr = p1;
-        month = parseInt(p2, 10) - 1;
-        day = parseInt(p3, 10);
-      } else {
-        day = parseInt(format.startsWith('dd') ? p1 : p2, 10);
-        month = parseInt(format.startsWith('dd') ? p2 : p1, 10) - 1;
-        yearStr = p3;
-      }
+      const day = parseInt(fields.d ?? '', 10);
+      const month = parseInt(fields.m ?? '', 10) - 1;
+      const yearStr = fields.y;
       let year = yearStr ? parseInt(yearStr, 10) : this.options.fromDate.getUTCFullYear();
 
       if (yearStr && yearStr.length <= 2) {
@@ -340,6 +399,9 @@ export class DateShortcutParser {
 
     for (const part of parts) {
       this._applySinglePart(date, part);
+      if (isNaN(date.getTime())) {
+        throw new Error(`DateShortcutParser: Part "${part}" moves the date out of the supported range.`);
+      }
     }
   }
 
@@ -354,15 +416,12 @@ export class DateShortcutParser {
     }
 
     const [, sign, valueStr, unitStr] = match;
-    const unit = unitStr.toLowerCase();
-    const unitType = this.unitTypeMap.get(unit);
+    const unitType = lowercaseForms(unitStr)
+      .map((form) => this.unitTypeMap.get(form))
+      .find((type) => type !== undefined);
 
     if (!unitType) {
-      // Check if it's a "today" keyword which can appear in relative parts as a no-op
-      if ([...this.locale.today].includes(unit)) {
-        return;
-      }
-      throw new Error(`DateShortcutParser: Unknown unit "${unit}" in shortcut.`);
+      throw new Error(`DateShortcutParser: Unknown unit "${unitStr}" in shortcut.`);
     }
 
     if (unitType === 'today') {

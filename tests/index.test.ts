@@ -363,3 +363,114 @@ describe('low years', () => {
     expect(parser.parse('2/29/0024 +1m').getUTCFullYear()).toBe(24);
   });
 });
+
+describe('second review regressions', () => {
+  const fromDate = new Date('2024-05-15T10:00:00Z');
+  const base = { year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'] };
+
+  it('accepts uppercase Turkish units and keywords', () => {
+    const tr = new DateShortcutParser({ fromDate, locale: 'tr' });
+    expect(tr.parse('+1YIL').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+    expect(tr.parse('+1İŞGÜNÜ').toISOString()).toBe('2024-05-01T00:00:00.000Z');
+    expect(tr.parse('ŞİMDİ +1G').toISOString()).toBe('2024-05-16T00:00:00.000Z');
+    expect(tr.parse('BUGÜN').toISOString()).toBe('2024-05-15T00:00:00.000Z');
+  });
+
+  it('does not take the last number of a space-separated date pattern as the time', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /^(\d{4}) (\d{2}) (\d{2})/, format: 'yyyy mm dd' }] },
+    });
+    expect(parser.parse('2025 03 15').toISOString()).toBe('2025-03-15T00:00:00.000Z');
+    expect(parser.parse('2025 03 15 10').toISOString()).toBe('2025-03-15T10:00:00.000Z');
+    expect(parser.parse('2025 03 15 +1d 10:30').toISOString()).toBe('2025-03-16T10:30:00.000Z');
+  });
+
+  it('reads the field order from the whole format string', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})/, format: 'd/m/yyyy' }] },
+    });
+    expect(parser.parse('3/12/2025').toISOString()).toBe('2025-12-03T00:00:00.000Z');
+
+    const ydm = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /^(\d{4})\.(\d{1,2})\.(\d{1,2})/, format: 'yyyy.dd.mm' }] },
+    });
+    expect(ydm.parse('2025.03.12').toISOString()).toBe('2025-12-03T00:00:00.000Z');
+  });
+
+  it('throws on amounts that move the date out of range', () => {
+    const parser = new DateShortcutParser({ fromDate });
+    expect(() => parser.parse('99999999999y')).toThrow(/out of the supported range/);
+    expect(() => parser.parse('-99999999999d')).toThrow(/out of the supported range/);
+    expect(() => parser.parse('99999999999999999999999m')).toThrow(/out of the supported range/);
+  });
+
+  it('treats French "a" as one year', () => {
+    const fr = new DateShortcutParser({ fromDate, locale: 'fr' });
+    expect(fr.parse('a').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+  });
+});
+
+describe('custom pattern edge cases', () => {
+  const fromDate = new Date('2024-05-15T10:00:00Z');
+  const base = { year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'] };
+
+  it('still reads the year group when the format has no year', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?/, format: 'dd.mm' }] },
+    });
+    expect(parser.parse('15.03.2025').toISOString()).toBe('2025-03-15T00:00:00.000Z');
+    expect(parser.parse('15.03').toISOString()).toBe('2024-03-15T00:00:00.000Z');
+  });
+
+  it('ignores an unanchored pattern match that does not start the shortcut', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /(\d{4})-(\d{2})-(\d{2})/, format: 'yyyy-mm-dd' }] },
+    });
+    expect(parser.parse('2025-03-15 +1d').toISOString()).toBe('2025-03-16T00:00:00.000Z');
+    expect(() => parser.parse('x 2025-03-15')).toThrow();
+  });
+});
+
+describe('stateful regex flags', () => {
+  it('handles sticky and global date patterns followed by a time', () => {
+    const fromDate = new Date('2024-05-15T10:00:00Z');
+    const base = { year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'] };
+    for (const regex of [/(\d{1,2})\/(\d{1,2})/y, /(\d{1,2})\/(\d{1,2})/g]) {
+      const parser = new DateShortcutParser({ fromDate, locale: { ...base, datePatterns: [{ regex, format: 'mm/dd' }] } });
+      expect(parser.parse('5/20 9').toISOString()).toBe('2024-05-20T09:00:00.000Z');
+      expect(parser.parse('5/20 9').toISOString()).toBe('2024-05-20T09:00:00.000Z');
+    }
+  });
+});
+
+describe('duplicate keywords', () => {
+  it('uses the first unit type in year, month, week, day, weekday, today order', () => {
+    const parser = new DateShortcutParser({
+      fromDate: new Date('2024-05-15T10:00:00Z'),
+      locale: { day: ['x', 'd'], year: ['x', 'y'], month: ['m'], week: ['w'], today: [], weekday: ['wd'], datePatterns: [] },
+    });
+    expect(parser.parse('+1x').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+  });
+});
+
+describe('optional year vs trailing time', () => {
+  it('reads a bare number as the year but keeps times with minutes or am/pm', () => {
+    const parser = new DateShortcutParser({
+      fromDate: new Date('2024-05-15T10:00:00Z'),
+      locale: {
+        year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'], am: ['am'], pm: ['pm'],
+        datePatterns: [{ regex: /^(\d{1,2})\.(\d{1,2})(?: (\d{2,4}))?/, format: 'dd.mm.yyyy' }],
+      },
+    });
+    expect(parser.parse('15.03 12').toISOString()).toBe('2012-03-15T00:00:00.000Z');
+    expect(parser.parse('15.03 10:30').toISOString()).toBe('2024-03-15T10:30:00.000Z');
+    expect(parser.parse('15.03 10:30:15').toISOString()).toBe('2024-03-15T10:30:15.000Z');
+    expect(parser.parse('15.03 10pm').toISOString()).toBe('2024-03-15T22:00:00.000Z');
+    expect(parser.parse('15.03 2025 10').toISOString()).toBe('2025-03-15T10:00:00.000Z');
+  });
+});
