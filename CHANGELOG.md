@@ -17,7 +17,8 @@
 - Uppercase Turkish units and keywords such as `YIL`, `İŞGÜNÜ` and `ŞİMDİ` are recognized. Unit
   matching now also applies Turkish casing rules.
 - A custom date pattern ending in a number (e.g. `2025 03 15`) no longer loses that number to the
-  time parser.
+  time parser. When a pattern's optional year could also be read as a time (e.g. an optional
+  space-separated year), the number now goes to the date.
 - Amounts that move the date out of the range `Date` supports (e.g. `99999999999y`) throw an error
   instead of returning an Invalid Date.
 

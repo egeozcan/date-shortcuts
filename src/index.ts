@@ -99,14 +99,19 @@ function sameKeyword(input: string, keyword: string): boolean {
   return lowercaseForms(input).some((form) => keywordForms.includes(form));
 }
 
-/** Returns the capture-group order of a date format, e.g. "d/m/yyyy" -> ['d', 'm', 'y']. */
+/**
+ * Returns the capture-group order of a date format, e.g. "d/m/yyyy" -> ['d', 'm', 'y'].
+ * A format without a year still reads an optional year from the group after the day and month.
+ */
 function fieldOrder(format: string): Array<'d' | 'm' | 'y'> {
   const lower = format.toLowerCase();
   const fields = (['d', 'm', 'y'] as const).filter((field) => lower.includes(field));
   if (!fields.includes('d') || !fields.includes('m')) {
     throw new Error(`DateShortcutParser: Date pattern format "${format}" must contain a day and a month.`);
   }
-  return fields.sort((a, b) => lower.indexOf(a) - lower.indexOf(b));
+  fields.sort((a, b) => lower.indexOf(a) - lower.indexOf(b));
+  if (!fields.includes('y')) fields.push('y');
+  return fields;
 }
 
 interface TimeInfo {
@@ -267,8 +272,8 @@ export class DateShortcutParser {
     const offset = shortcut.length - rest.length;
     for (const pattern of this.locale.datePatterns) {
       const match = rest.match(pattern.regex);
-      if (match) {
-        return offset + match.index! + match[0].length > timeStart;
+      if (match?.index === 0) {
+        return offset + match[0].length > timeStart;
       }
     }
     return false;
@@ -333,8 +338,9 @@ export class DateShortcutParser {
    */
   private _tryParseAbsoluteDate(shortcut: string): { date: Date, remaining: string } | null {
     for (const pattern of this.locale.datePatterns) {
+      // Dates must start the shortcut; an unanchored regex matching later would drop the text before it.
       const match = shortcut.match(pattern.regex);
-      if (!match) continue;
+      if (!match || match.index !== 0) continue;
 
       const fields: Partial<Record<'d' | 'm' | 'y', string>> = {};
       fieldOrder(pattern.format).forEach((field, i) => {
@@ -354,7 +360,7 @@ export class DateShortcutParser {
       if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) {
         throw new Error(`DateShortcutParser: Invalid date "${match[0]}" in shortcut.`);
       }
-      const remaining = shortcut.substring(match.index! + match[0].length).trim();
+      const remaining = shortcut.substring(match[0].length).trim();
       return { date, remaining };
     }
     return null;

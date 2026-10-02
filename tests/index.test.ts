@@ -412,3 +412,26 @@ describe('second review regressions', () => {
     expect(fr.parse('a').toISOString()).toBe('2025-05-15T00:00:00.000Z');
   });
 });
+
+describe('custom pattern edge cases', () => {
+  const fromDate = new Date('2024-05-15T10:00:00Z');
+  const base = { year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'] };
+
+  it('still reads the year group when the format has no year', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?/, format: 'dd.mm' }] },
+    });
+    expect(parser.parse('15.03.2025').toISOString()).toBe('2025-03-15T00:00:00.000Z');
+    expect(parser.parse('15.03').toISOString()).toBe('2024-03-15T00:00:00.000Z');
+  });
+
+  it('ignores an unanchored pattern match that does not start the shortcut', () => {
+    const parser = new DateShortcutParser({
+      fromDate,
+      locale: { ...base, datePatterns: [{ regex: /(\d{4})-(\d{2})-(\d{2})/, format: 'yyyy-mm-dd' }] },
+    });
+    expect(parser.parse('2025-03-15 +1d').toISOString()).toBe('2025-03-16T00:00:00.000Z');
+    expect(() => parser.parse('x 2025-03-15')).toThrow();
+  });
+});
