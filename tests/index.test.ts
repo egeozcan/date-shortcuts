@@ -449,11 +449,28 @@ describe('stateful regex flags', () => {
 });
 
 describe('duplicate keywords', () => {
-  it('uses the first unit type in year, month, week, day, today, weekday order', () => {
+  it('uses the first unit type in year, month, week, day, weekday, today order', () => {
     const parser = new DateShortcutParser({
       fromDate: new Date('2024-05-15T10:00:00Z'),
       locale: { day: ['x', 'd'], year: ['x', 'y'], month: ['m'], week: ['w'], today: [], weekday: ['wd'], datePatterns: [] },
     });
     expect(parser.parse('+1x').toISOString()).toBe('2025-05-15T00:00:00.000Z');
+  });
+});
+
+describe('optional year vs trailing time', () => {
+  it('reads a bare number as the year but keeps times with minutes or am/pm', () => {
+    const parser = new DateShortcutParser({
+      fromDate: new Date('2024-05-15T10:00:00Z'),
+      locale: {
+        year: ['y'], month: ['m'], week: ['w'], day: ['d'], today: [], weekday: ['wd'], am: ['am'], pm: ['pm'],
+        datePatterns: [{ regex: /^(\d{1,2})\.(\d{1,2})(?: (\d{2,4}))?/, format: 'dd.mm.yyyy' }],
+      },
+    });
+    expect(parser.parse('15.03 12').toISOString()).toBe('2012-03-15T00:00:00.000Z');
+    expect(parser.parse('15.03 10:30').toISOString()).toBe('2024-03-15T10:30:00.000Z');
+    expect(parser.parse('15.03 10:30:15').toISOString()).toBe('2024-03-15T10:30:15.000Z');
+    expect(parser.parse('15.03 10pm').toISOString()).toBe('2024-03-15T22:00:00.000Z');
+    expect(parser.parse('15.03 2025 10').toISOString()).toBe('2025-03-15T10:00:00.000Z');
   });
 });

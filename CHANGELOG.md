@@ -12,7 +12,7 @@ changes meaning, so release this as a minor (or major) version rather than a pat
   now only the year unit: a bare `a` is one year from today and `a +1j` is a year and a day from
   today. `+1a` still adds a year. Use `aujourdhui` or `maintenant` for today.
 - Custom locales: a keyword listed under several unit types now uses only the first of year, month,
-  week, day, today, weekday. In 1.0.3 every matching unit was applied.
+  week, day, weekday, today. In 1.0.3 every matching unit was applied.
 - Custom `datePatterns`: the capture-group order is now read from where `d`, `m` and `y` first
   appear in the `format` string. In 1.0.3 only a format starting with `dd` was day-first and
   everything else was month, day, year, so `d/m/yyyy` and `yyyy-mm-dd` were read wrongly. A format
@@ -20,7 +20,8 @@ changes meaning, so release this as a minor (or major) version rather than a pat
   year still reads an optional year from the group after the day and month.
 - When a custom pattern's optional year could also be read as a time (e.g. an optional
   space-separated year), the number now goes to the date: with `/^(\d{1,2})\.(\d{1,2})(?: (\d{2,4}))?/`,
-  `15.03 12` is March 15, 2012, not March 15 at 12:00.
+  `15.03 12` is March 15, 2012, not March 15 at 12:00. Times with minutes or am/pm
+  (`15.03 12:00`, `15.03 12pm`) are still times.
 - Custom date patterns are matched against the shortcut as typed, not lowercased; add the `i` flag
   to a pattern that contains letters if it should be case-insensitive.
 - Date patterns only count when they match at the start of the shortcut (after an optional today
@@ -40,7 +41,8 @@ changes meaning, so release this as a minor (or major) version rather than a pat
   matching now also applies Turkish casing rules.
 - A custom date pattern ending in a number (e.g. `2025 03 15`) no longer loses that number to the
   time parser.
-- Custom date patterns with the `g` or `y` flag work; before they failed or only worked once.
+- Custom date patterns with the `g` or `y` flag work; before `g` patterns always failed and `y`
+  patterns failed on every other call.
 - Amounts that move the date out of the range `Date` supports (e.g. `99999999999y`) throw an error
   instead of returning an Invalid Date.
 

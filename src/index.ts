@@ -190,7 +190,7 @@ export class DateShortcutParser {
    */
   private _createUnitTypeMap(): Map<string, string> {
     const map = new Map<string, string>();
-    const unitTypes = ['year', 'month', 'week', 'day', 'today', 'weekday'] as const;
+    const unitTypes = ['year', 'month', 'week', 'day', 'weekday', 'today'] as const;
 
     for (const unitType of unitTypes) {
       const keywords = this.locale[unitType];
@@ -235,7 +235,9 @@ export class DateShortcutParser {
     const timeRegex = new RegExp(`(?:\\s+|^)(\\d{1,2}(?::\\d{2})?(?::\\d{2})?)${ampmPattern}$`, 'i');
 
     const match = shortcut.match(timeRegex);
-    if (!match || this._absoluteDateCoversTime(shortcut, match.index! + match[0].search(/\d/))) {
+    // A bare number fully swallowed by a date pattern (the "15" in "2025 03 15") belongs to the date.
+    const timeEnd = match ? match.index! + match[0].search(/\d/) + match[1].length : 0;
+    if (!match || (!match[2] && this._absoluteDateEndsAtOrAfter(shortcut, timeEnd))) {
       return { timeInfo: null, dateShortcut: shortcut };
     }
 
@@ -274,16 +276,15 @@ export class DateShortcutParser {
   }
 
   /**
-   * True if the absolute date pattern that _parseDate would use extends to or past `timeStart`,
-   * so a trailing number such as the "15" in "2025 03 15" belongs to the date and not the time.
+   * True if the absolute date pattern that _parseDate would use ends at or after `position`.
    */
-  private _absoluteDateCoversTime(shortcut: string, timeStart: number): boolean {
+  private _absoluteDateEndsAtOrAfter(shortcut: string, position: number): boolean {
     const rest = this._stripToday(shortcut);
     const offset = shortcut.length - rest.length;
     for (const pattern of this.locale.datePatterns) {
       const match = matchDatePattern(pattern, rest);
       if (match) {
-        return offset + match[0].length > timeStart;
+        return offset + match[0].length >= position;
       }
     }
     return false;
